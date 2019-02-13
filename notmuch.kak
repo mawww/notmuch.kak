@@ -2,13 +2,16 @@ declare-option str notmuch_thread_client
 declare-option str notmuch_last_search
 
 define-command notmuch -params 1.. \
-    -shell-script-candidates %{printf '%s\n' $kak_opt_notmuch_last_search} \
+    -shell-script-candidates %{
+        notmuch search --output=tags \* | sed -e 's/^/tag:/'
+        printf "and\nor\n\\(\n\\)\n"
+    } \
 %{
     edit! -scratch *notmuch*
     execute-keys "!notmuch search %arg{@}<ret>gg"
     add-highlighter buffer/ line '%val{cursor_line}' default+r
     add-highlighter buffer/ regex \
-        '^(?<thread>thread:[0-9a-f]+) +(?<date>[^[]+) (?<count>\[\d+/\d+\]) (?<names>[^;]*); (?<subject>[^\n]*) (?<tags>\([\w ]+\))$' \
+        '^(?<thread>thread:[0-9a-f]+) +(?<date>[^[]+) (?<count>\[\d+/\d+\]) (?<names>[^;]*); (?<subject>[^\n]*) (?<tags>\([-\w ]+\))$' \
         thread:yellow date:blue count:cyan names:green tags:red
 
     set-option buffer scrolloff 3,0
