@@ -14,17 +14,22 @@ define-command notmuch -params 1.. \
         '^(?<thread>thread:[0-9a-f]+) +(?<date>[^[]+) (?<count>\[\d+/\d+\]) (?<names>[^;]*); (?<subject>[^\n]*) (?<tags>\([-\w ]+\))$' \
         thread:yellow date:blue count:cyan names:green tags:red
 
+    set-option buffer readonly true
     set-option buffer scrolloff 3,0
     set-option buffer notmuch_last_search %arg{1}
 
     hook buffer NormalIdle .* %{ evaluate-commands -draft %{
         execute-keys <a-x>sthread:\S+<ret>
-        evaluate-commands -try-client %opt{notmuch_thread_client} notmuch-thread %val{selection}
+        evaluate-commands -try-client %opt{notmuch_thread_client} notmuch-show %val{selection}
     }}
 }
 
 define-command notmuch-update %{
+    execute-keys <a-x>s 'thread:[0-9a-f]+' <ret>*
+    set-register e %reg{/}
     notmuch %opt{notmuch_last_search}
+    execute-keys /<c-r>e<ret> vv
+    echo "updated search '%opt{notmuch_last_search}' keeping thread '%reg{e}'"
 }
 
 define-command notmuch-apply-to -params 3 %[ evaluate-commands -draft %[ try %[
@@ -35,9 +40,9 @@ define-command notmuch-apply-to -params 3 %[ evaluate-commands -draft %[ try %[
     ]
 ]]]
 
-define-command notmuch-thread -params 1 %[
-    edit! -scratch *notmuch-thread*
-    execute-keys "!notmuch show --include-html --format=text %arg{@}<ret>gg"
+define-command notmuch-show -params 1 %[
+    edit! -scratch *notmuch-show*
+    execute-keys "!notmuch show --include-html --format=text '%arg{@}'<ret>gg"
     set-option buffer indentwidth 2
     evaluate-commands -draft %[
         try %[ execute-keys \%s [^\n]\f\w+[{}] <ret> '<a-;>;a<ret><esc>' ] # Ensure all markers are on their own line
@@ -75,8 +80,12 @@ define-command notmuch-thread -params 1 %[
         notmuch-apply-to message '' %{
             execute-keys -draft 'K<a-;>J<a-x><gt>'
             execute-keys -draft ';<a-x>c<ret>'
-            execute-keys -draft '<a-;>;<a-x>s' id:\S+ <ret>"ay <a-x>Hc '⬛ Message: <c-r>a' <esc>
+            execute-keys '<a-;>;<a-x>s' id:\S+ <ret>"ay <a-x>Hc '⬛ Message: <c-r>a' <esc>
+
+            add-highlighter buffer/ line %val{cursor_line} default+r
         }
+
+        set-option buffer readonly true
     ]
 
     add-highlighter buffer/ regex ^\h*(From|To|Cc|Bcc|Subject|Reply-To|In-Reply-To|Date):([^\n]*)$ 1:keyword 2:attribute
@@ -84,6 +93,8 @@ define-command notmuch-thread -params 1 %[
     add-highlighter buffer/ regex ^\h*>.*?$ 0:comment
 
     add-highlighter buffer/ wrap -indent -word -marker ' ➥'
+
+    nop %sh{ notmuch tag -unread "$1" }
 ]
 
 define-command notmuch-save-part %{
