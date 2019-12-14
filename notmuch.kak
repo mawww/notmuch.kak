@@ -18,15 +18,26 @@ define-command notmuch -params 1.. \
     set-option buffer scrolloff 3,0
     set-option buffer notmuch_last_search %arg{1}
 
-    hook buffer NormalIdle .* %{ evaluate-commands -draft %{
+    hook buffer NormalIdle .* %{ evaluate-commands -draft %{ try %{
         execute-keys <a-x>sthread:\S+<ret>
         evaluate-commands -try-client %opt{notmuch_thread_client} notmuch-show %val{selection}
-    }}
+    }}}
+
+    map buffer normal a ':notmuch-tag -inbox<ret>'
+}
+
+define-command notmuch-tag -params 1.. %{
+    execute-keys <a-x>sthread:\S+<ret>
+    nop %sh{notmuch tag "$@" -- $kak_selection}
+    notmuch-update
 }
 
 define-command notmuch-update %{
-    execute-keys <a-x>s 'thread:[0-9a-f]+' <ret>*
-    set-register e %reg{/}
+    try %{
+        execute-keys <a-x>s 'thread:[0-9a-f]+' <ret>"e*
+    } catch %{
+        set-register e .
+    }
     notmuch %opt{notmuch_last_search}
     execute-keys /<c-r>e<ret> vv
     echo "updated search '%opt{notmuch_last_search}' keeping thread '%reg{e}'"
