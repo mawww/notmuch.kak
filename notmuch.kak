@@ -100,8 +100,13 @@ define-command notmuch-show -params 1 %[
     ]
 
     add-highlighter buffer/ regex ^\h*(From|To|Cc|Bcc|Subject|Reply-To|In-Reply-To|Date):([^\n]*)$ 1:keyword 2:attribute
-    add-highlighter buffer/ regex <[^@>]+@.*?> 0:string
+    add-highlighter buffer/ regex <[^@>\s]+@.*?> 0:string
     add-highlighter buffer/ regex ^\h*>.*?$ 0:comment
+    add-highlighter buffer/regions regions
+    add-highlighter buffer/regions/diff region ^\h+---\h*$ ^\h+--\h*$ group
+    add-highlighter buffer/regions/diff/ regex ^\h+@@[^\n]*$ 0:meta
+    add-highlighter buffer/regions/diff/ regex ^\h+\+[^\n]*$ 0:green
+    add-highlighter buffer/regions/diff/ regex ^\h+-[^\n]*$ 0:red
 
     add-highlighter buffer/ wrap -indent -word -marker ' ➥'
 
