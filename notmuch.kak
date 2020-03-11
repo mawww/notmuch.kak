@@ -11,8 +11,9 @@ define-command notmuch -params 1.. \
     execute-keys "!notmuch search %arg{@}<ret>gg"
     add-highlighter buffer/ line '%val{cursor_line}' default+r
     add-highlighter buffer/ regex \
-        '^(?<thread>thread:[0-9a-f]+) +(?<date>[^[]+) (?<count>\[\d+/\d+(?:\(\d+\))?\]) (?<names>[^;]*); (?<subject>[^\n]*) (?<tags>\([-\w ]+\))$' \
+        '^(?<thread>thread:[0-9a-f]+) +(?<date>[^[]+) (?<count>\[\d+/\d+(?:\(\d+\))?\]) (?<names>[^;]*); (?<subject>[^\n]*) (?<tags>\([-\w ]*\))$' \
         thread:yellow date:blue count:cyan names:green tags:red
+    add-highlighter buffer/ regex '^[^;]*; (?<subject>[^\n]*) \([-\w ]*\bunread\b[-\w ]*\)$' subject:+b
 
     set-option buffer readonly true
     set-option buffer scrolloff 3,0
