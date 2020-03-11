@@ -34,14 +34,14 @@ define-command notmuch-tag -params 1.. %{
 }
 
 define-command notmuch-update %{
-    try %{
-        execute-keys <a-x>s 'thread:[0-9a-f]+' <ret>"e*
-    } catch %{
-        set-register e .
-    }
+    # Save current thread
+    try %{ execute-keys <a-x>s 'thread:[0-9a-f]+' <ret>"a* } catch %{ set-register a . }
+    # Save next thread in case current thread will not be in results anymore
+    try %{ execute-keys j<a-x>s 'thread:[0-9a-f]+' <ret>"b* } catch %{ set-register b . }
+
     notmuch %opt{notmuch_last_search}
-    execute-keys /<c-r>e<ret> vv
-    echo "updated search '%opt{notmuch_last_search}' keeping thread '%reg{e}'"
+    # Select current or next thread
+    try %{ execute-keys /<c-r>a<ret> vv } catch %{ execute-keys /<c-r>b<ret> vv }
 }
 
 define-command notmuch-apply-to -params 3 %[ evaluate-commands -draft %[ try %[
