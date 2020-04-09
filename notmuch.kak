@@ -45,6 +45,7 @@ define-command notmuch-update %{
 }
 
 define-command notmuch-apply-to -params 3 %[ evaluate-commands -draft %[ try %[
+    set-register slash ''
     execute-keys s "\f%arg{1}\{" <ret> <a-x><a-k> "%arg{2}" <ret>
     evaluate-commands -itersel %[
         execute-keys }c "\f%arg{1}\{,\f%arg{1}\}" <ret>
@@ -118,7 +119,7 @@ define-command notmuch-save-part %{
     try %{
         evaluate-commands -save-regs abc %{
             evaluate-commands -draft %{
-                execute-keys gl<a-/> '⬛ (?:Part|Attachment): ID: (\d+)[^\n]+?(?:Filename: ([^\n,]+))?(?:,|$)' <ret>
+                execute-keys gl<a-/> '⬛ (?:Part|Attachment): ID: (\d+)(?:[^\n]+?Filename: ([^\n,]+))?(?:,|$)' <ret>
                 set-register a %reg{1}
                 set-register b %reg{2}
                 execute-keys gl<a-/> '⬛ (?:Message): (id:\S+)' <ret>
