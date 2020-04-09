@@ -53,6 +53,134 @@ define-command notmuch-apply-to -params 3 %[ evaluate-commands -draft %[ try %[
     ]
 ]]]
 
+define-command -hidden notmuch-tree-fix-character %{
+    try %{
+        execute-keys <a-k>└<ret> r├
+    } catch %{
+        execute-keys <a-k>─<ret> r┬
+    } catch %{
+        execute-keys <a-k><space><ret> r│k
+        notmuch-tree-fix-character
+    } catch %{}
+}
+
+define-command -hidden notmuch-tree-insert-fixed-length -params 2 %{
+    evaluate-commands -draft %{
+        buffer *notmuch-tree-scratch*
+        set-register dquote %arg{1}
+        set-register a ' ' 
+        execute-keys '%<a-d>' P %arg{2} '"aP' <a-O>k %arg{2} '"aP' hj<a-h>"ay
+    }
+    execute-keys '"aP'
+}
+
+declare-option -hidden line-specs notmuch_tree_message_ids
+declare-option -hidden str-list notmuch_tree_restore_ids
+
+define-command notmuch-tree-tag -params 1.. %{
+    nop %sh{
+        tags="$@"
+        eval "set -- $kak_quoted_opt_notmuch_tree_message_ids"
+        shift $kak_cursor_line
+        thread="$(notmuch search --output=threads -- id:${1##*|})"
+        if [ -n "$thread" ]; then
+            notmuch tag "$tags" -- $thread
+        fi
+    }
+    notmuch-tree-update
+}
+
+define-command notmuch-tree-update %{
+    evaluate-commands %sh{
+        eval "set -- $kak_quoted_opt_notmuch_tree_message_ids"
+        shift $kak_cursor_line
+        id=${1##*|}
+        thread="$(notmuch search --output=threads -- id:$id)"
+        for message; do
+            if [ "$(notmuch search --output=threads -- id:${message##*|})" != "$thread" ]; then
+                next_id=${message##*|}
+                break
+            fi
+        done
+        echo "set global notmuch_tree_restore_ids $id $next_id"
+    }
+    notmuch-tree %opt{notmuch_last_search}
+    execute-keys %sh{
+        eval "set -- $kak_quoted_opt_notmuch_tree_restore_ids"
+        id=$1
+        next_id=$2
+        eval "set -- $kak_quoted_opt_notmuch_tree_message_ids"
+        for message; do
+            if [ "${message##*|}" == "$id" -o "${message##*|}" == "$next_id" ]; then
+                echo "${message%%|*}g"
+                break
+            fi
+        done
+    }
+}
+
+define-command notmuch-tree -params 1 %[
+    edit -scratch *notmuch-tree-scratch*
+    edit! -scratch *notmuch-tree*
+    execute-keys "!notmuch show --entire-thread --body=false --format=text '%arg{@}'<ret>"
+    evaluate-commands -draft -no-hooks %[
+        set-option buffer notmuch_tree_message_ids
+        try %[ execute-keys \%s [^\n]\f\w+[{}] <ret> '<a-;>;a<ret><esc>' ] # Ensure all markers are on their own line
+        execute-keys '%'
+        notmuch-apply-to message '' %{
+            evaluate-commands -draft %{ try %{
+                execute-keys <a-k> '^\fheader\{\n[^\n]+\([^\n]+?\)[^\n]+\(([\w -]*\bunread\b[\w -]*)\)' <ret><a-semicolon> # }
+                add-highlighter buffer/ line %val{cursor_line} +b
+            }}
+            execute-keys s '\fmessage\{.*id:(\H+).*\bdepth:(\d+).*\fheader\{\n[^\n]+\(([^\n]+?)\)[^\n]+\(([^\n]*?)\).*^Subject: ([^\n]*).*^From: ([^\n]+).*^Date: ([^\n]+).*\fheader\}.*\fmessage\}' <ret>"5R
+            set-option -add buffer notmuch_tree_message_ids "%val{cursor_line}|%reg{1}"
+            evaluate-commands -draft %{
+                notmuch-tree-insert-fixed-length %reg{6} 40
+                notmuch-tree-insert-fixed-length '' 1
+                notmuch-tree-insert-fixed-length %reg{4} 15
+                notmuch-tree-insert-fixed-length '' 1
+                notmuch-tree-insert-fixed-length %reg{3} 12
+                execute-keys 'i<space><esc>h"2R'
+                try %{
+                    execute-keys <a-k>\A0\z<ret>
+                    execute-keys c '───╼ ' <esc>
+                } catch %{
+                    set-register a '  '
+                    execute-keys %reg{2} '"aP' c '└──╼ ' <esc> 5hk
+                    notmuch-tree-fix-character
+                }
+            }
+        }
+        hook buffer NormalIdle .* %{ evaluate-commands -draft %{ try %{
+            evaluate-commands -try-client %opt{notmuch_thread_client} %sh{
+                eval "set -- $kak_quoted_opt_notmuch_tree_message_ids"
+                shift $kak_cursor_line
+                id="${1##*|}"
+                if [ -n "$id" ]; then
+                    echo "notmuch-show id:$id"
+                fi
+            }
+        }}}
+    ]
+    delete-buffer *notmuch-tree-scratch*
+    execute-keys gg
+
+    set-option buffer readonly true
+    set-option buffer scrolloff 3,0
+    set-option buffer notmuch_last_search %arg{1}
+
+    add-highlighter buffer/regions regions
+    add-highlighter buffer/regions/from region ^ ^.{40}\K group
+    add-highlighter buffer/regions/from/ fill green
+    add-highlighter buffer/regions/from/ regex <[^>]+>? 0:magenta
+    add-highlighter buffer/regions/tags region ^.{41}\K ^.{56}\K fill red
+    add-highlighter buffer/regions/date region ^.{57}\K ^.{69}\K fill blue
+
+    add-highlighter buffer/ line '%val{cursor_line}' default+r
+
+    map buffer normal a ':notmuch-tree-tag -inbox<ret>'
+]
+
 define-command notmuch-show -params 1 %[
     edit! -scratch *notmuch-show*
     execute-keys "!notmuch show --include-html --format=text '%arg{@}'<ret>gg"
