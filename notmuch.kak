@@ -201,7 +201,7 @@ define-command notmuch-show -params 1 %[
             execute-keys <a-S><a-x>d
         }
         notmuch-apply-to part 'Content-type: text/html$' %{
-            execute-keys 'K<a-;>J<a-x>' '|w3m -dump -T text/html -o display_link_number=true<ret>'
+            execute-keys 'K<a-;>J<a-x>' '|w3m -dump -cols 120 -graph -T text/html -o display_link_number=true<ret>'
         }
         notmuch-apply-to header '' %[
             execute-keys <a-S><a-x>d<a-space>j<a-x>d
@@ -241,6 +241,13 @@ define-command notmuch-show -params 1 %[
     add-highlighter buffer/ wrap -indent -word -marker ' ➥'
 
     nop %sh{ notmuch tag -unread "$1" }
+]
+
+define-command notmuch-reply -params 1 %[
+    edit -scratch *notmuch-reply*
+    set-option buffer filetype mail
+    add-highlighter buffer/ wrap -word -width 120
+    execute-keys "!notmuch reply '%arg{@}'<ret>"
 ]
 
 define-command notmuch-save-part %{
